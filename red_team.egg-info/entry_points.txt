@@ -1,0 +1,2 @@
+[console_scripts]
+red_team = red_team.final_main_execution:main

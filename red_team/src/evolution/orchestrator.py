@@ -18,12 +18,13 @@ from typing import List, Dict, Tuple, Any
 from dataclasses import dataclass, field
 import json
 from datetime import datetime
+import random
 
-from core import (
+from ..core.framework import (
     DefenseType, GenerationReport, EvolutionPhase,
     TestIssue, SeverityLevel, EvolvableSeed
 )
-from red_team import RedTeamExecutor, RedTeamAdaptationEngine
+from ..core.seed import RedTeamExecutor, RedTeamAdaptationEngine
 
 
 # ============================================================================
@@ -107,15 +108,20 @@ class MetricsCollector:
 # EVOLUTION ORCHESTRATOR
 # ============================================================================
 
+from red_team.config import get_config
+
 class EvolutionOrchestrator:
     """Orchestrates complete co-evolution cycle"""
     
-    def __init__(self, seed: EvolvableSeed, max_generations: int = 10):
+    def __init__(self, seed: EvolvableSeed, config=None):
+        if config is None:
+            config = get_config()
+        self.config = config
         self.seed = seed
-        self.red_team = RedTeamExecutor(seed)
+        self.red_team = RedTeamExecutor(seed, self.config.attack)
         self.adaptation_engine = RedTeamAdaptationEngine(self.red_team)
         self.metrics_collector = MetricsCollector()
-        self.max_generations = max_generations
+        self.max_generations = self.config.evolution.max_generations
         self.evolution_log: List[GenerationReport] = []
         self.code_iteration_count = 0
     
@@ -190,8 +196,8 @@ class EvolutionOrchestrator:
                 failed_defenses.add(exploit.vector)
         
         for defense_type in failed_defenses:
-            self.seed.strengthen_defense(defense_type, amount=2)
-            fixes.append(f"💪 Strengthened {defense_type.value} defense (strength +2)")
+            self.seed.strengthen_defense(defense_type)
+            fixes.append(f"💪 Strengthened {defense_type.value} defense (strength +{self.config.defense.strengthening_rate})")
         
         # Strategy 2: Activate complementary defenses
         defense_relationships = {
@@ -209,27 +215,47 @@ class EvolutionOrchestrator:
                         self.seed.activate_defense(complementary)
                         fixes.append(f"🧬 Activated {complementary.value} (complementary defense)")
         
-        # Strategy 3: Low fitness emergency activation
+        # Strategy 3: Introduce new defense
+        attack_vectors = [e.vector for e in exploits if not e.blocked]
+        if len(attack_vectors) > 3:
+            # get the most common attack vector
+            most_common_vector = max(set(attack_vectors), key=attack_vectors.count)
+            # get a defense that is not active
+            inactive_defenses = [d for d in self.seed.defense_framework.defenses.values() if not d.config.active]
+            if inactive_defenses:
+                new_defense = random.choice(inactive_defenses)
+                self.seed.activate_defense(new_defense.config.defense_type)
+                fixes.append(f"💡 Introduced {new_defense.config.defense_type.value} to counter {most_common_vector.value}")
+
+        # Strategy 4: Chaos factor - randomly strengthen a defense
+        if random.random() < 0.1:
+            random_defense = random.choice(list(self.seed.defense_framework.defenses.keys()))
+            self.seed.strengthen_defense(random_defense)
+            fixes.append(f"🎲 Chaos: Randomly strengthened {random_defense.value}")
+
+        # Strategy 5: Low fitness emergency activation
         fitness = (sum(1 for e in exploits if e.blocked) / len(exploits) * 100) if exploits else 0
         if fitness < 50:
-            for defense_type in DefenseType:
-                self.seed.activate_defense(defense_type)
-            fixes.append(f"🚨 Emergency: Activated ALL defenses (fitness: {fitness:.1f}%)")
+            inactive_defenses = [d for d in self.seed.defense_framework.defenses.values() if not d.config.active]
+            for defense in inactive_defenses:
+                self.seed.activate_defense(defense.config.defense_type)
+            if inactive_defenses:
+                fixes.append(f"🚨 Emergency: Activated ALL inactive defenses (fitness: {fitness:.1f}%)")
         
         return fixes
     
     def _display_generation_state(self, report: GenerationReport):
         """Display current generation state"""
-        print(f"\n🛡️  DEFENSE STATE:")
+        print(f"\nDEFENSE STATE:")
         
         snapshot = report.defenses_snapshot
         for name, state in snapshot.items():
-            status = "✓" if state['active'] else "✗"
-            bar = "█" * state['strength'] + "░" * (10 - state['strength'])
+            status = "ACTIVE" if state['active'] else "INACTIVE"
+            bar = "#" * int(state['strength']) + "-" * (10 - int(state['strength']))
             effectiveness = state.get('effectiveness', 0) * 100
             print(f"  {status} {name:25} {bar} ({state['strength']:2d}/10) Eff: {effectiveness:5.1f}%")
         
-        print(f"\n🎯 TOP ATTACK PATTERNS:")
+        print(f"\nTOP ATTACK PATTERNS:")
         pattern_status = self.red_team.get_pattern_status()
         sorted_patterns = sorted(
             pattern_status.items(),

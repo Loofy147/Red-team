@@ -166,7 +166,7 @@ class AttackKnowledgeBase:
             return "url"
         if "\\x" in payload_str:
             return "hex"
-        if "\u" in payload_str:
+        if r"\u" in payload_str:
             return "unicode"
         
         return "none"
@@ -422,39 +422,39 @@ class AdaptiveDefenseSynthesizer:
     
     def _synth_multi_layer_decoder(self, seed) -> str:
         """Synthesize multi-layer decoding defense"""
-        from core import DefenseType
+        from ..core.framework import DefenseType
         seed.strengthen_defense(DefenseType.SANITIZATION, 4)
-        return "🧠 SYNTHESIZED: Multi-layer payload decoder"
+        return "SYNTHESIZED: Multi-layer payload decoder"
     
     def _synth_introspection_validator(self, seed) -> str:
         """Synthesize introspection-based validator"""
-        from core import DefenseType
+        from ..core.framework import DefenseType
         seed.strengthen_defense(DefenseType.TYPE_CHECKING, 4)
-        return "🧠 SYNTHESIZED: Object introspection validator"
+        return "SYNTHESIZED: Object introspection validator"
     
     def _synth_recursive_type_check(self, seed) -> str:
         """Synthesize recursive type checker"""
-        from core import DefenseType
+        from ..core.framework import DefenseType
         seed.strengthen_defense(DefenseType.TYPE_CHECKING, 3)
-        return "🧠 SYNTHESIZED: Recursive type validator"
+        return "SYNTHESIZED: Recursive type validator"
     
     def _synth_memory_validator(self, seed) -> str:
         """Synthesize memory-based validator"""
-        from core import DefenseType
+        from ..core.framework import DefenseType
         seed.strengthen_defense(DefenseType.BOUNDS_ENFORCEMENT, 4)
-        return "🧠 SYNTHESIZED: Memory-based size validator"
+        return "SYNTHESIZED: Memory-based size validator"
     
     def _synth_state_inspector(self, seed) -> str:
         """Synthesize state inspector"""
-        from core import DefenseType
+        from ..core.framework import DefenseType
         seed.strengthen_defense(DefenseType.STATE_PROTECTION, 4)
-        return "🧠 SYNTHESIZED: Deep state graph inspector"
+        return "SYNTHESIZED: Deep state graph inspector"
     
     def _synth_pattern_expansion(self, seed) -> str:
         """Synthesize expanded pattern matching"""
-        from core import DefenseType
+        from ..core.framework import DefenseType
         seed.strengthen_defense(DefenseType.SANITIZATION, 2)
-        return "🧠 SYNTHESIZED: Expanded danger pattern library"
+        return "SYNTHESIZED: Expanded danger pattern library"
 
 
 # ============================================================================

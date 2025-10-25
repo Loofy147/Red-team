@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 import random
 from enum import Enum
 
-from core import (
+from .framework import (
     DefenseType, Exploit, AttackPattern, SeverityLevel,
     TestIssue, GenerationReport, EvolutionPhase
 )
@@ -95,10 +95,15 @@ class AttackPatternLibrary:
 # RED TEAM EXECUTOR
 # ============================================================================
 
+from red_team.config import get_config
+
 class RedTeamExecutor:
     """Executes attack patterns against target system"""
     
-    def __init__(self, target_seed):
+    def __init__(self, target_seed, config=None):
+        if config is None:
+            config = get_config().attack
+        self.config = config
         self.target = target_seed
         self.attack_patterns: List[AttackPattern] = []
         self.generation_number = 0
@@ -106,62 +111,29 @@ class RedTeamExecutor:
     
     def _initialize_patterns(self):
         """Initialize attack pattern suite"""
-        self.attack_patterns = [
-            AttackPattern(
-                defense_type=DefenseType.INPUT_VALIDATION,
-                payload_generator=AttackPatternLibrary.null_injection,
-                description="Null injection attack",
-                difficulty=1
-            ),
-            AttackPattern(
-                defense_type=DefenseType.INPUT_VALIDATION,
-                payload_generator=AttackPatternLibrary.empty_string,
-                description="Empty string bypass",
-                difficulty=1
-            ),
-            AttackPattern(
-                defense_type=DefenseType.TYPE_CHECKING,
-                payload_generator=AttackPatternLibrary.type_confusion_list,
-                description="List type confusion",
-                difficulty=2
-            ),
-            AttackPattern(
-                defense_type=DefenseType.TYPE_CHECKING,
-                payload_generator=AttackPatternLibrary.type_confusion_dict,
-                description="Dict type confusion",
-                difficulty=2
-            ),
-            AttackPattern(
-                defense_type=DefenseType.BOUNDS_ENFORCEMENT,
-                payload_generator=lambda: AttackPatternLibrary.buffer_overflow_small(self.generation_number),
-                description="String buffer overflow",
-                difficulty=3
-            ),
-            AttackPattern(
-                defense_type=DefenseType.SANITIZATION,
-                payload_generator=AttackPatternLibrary.sql_injection,
-                description="SQL injection",
-                difficulty=4
-            ),
-            AttackPattern(
-                defense_type=DefenseType.SANITIZATION,
-                payload_generator=lambda: AttackPatternLibrary.sql_injection_obfuscated(self.generation_number),
-                description="Obfuscated SQL injection",
-                difficulty=5
-            ),
-            AttackPattern(
-                defense_type=DefenseType.STATE_PROTECTION,
-                payload_generator=AttackPatternLibrary.state_corruption,
-                description="State object corruption",
-                difficulty=3
-            ),
-            AttackPattern(
-                defense_type=DefenseType.STATE_PROTECTION,
-                payload_generator=AttackPatternLibrary.code_injection,
-                description="Code execution injection",
-                difficulty=5
-            ),
+        # In a real system, this would be data-driven
+        patterns = [
+            ("Null injection attack", DefenseType.INPUT_VALIDATION, AttackPatternLibrary.null_injection, 1),
+            ("Empty string bypass", DefenseType.INPUT_VALIDATION, AttackPatternLibrary.empty_string, 1),
+            ("List type confusion", DefenseType.TYPE_CHECKING, AttackPatternLibrary.type_confusion_list, 2),
+            ("Dict type confusion", DefenseType.TYPE_CHECKING, AttackPatternLibrary.type_confusion_dict, 2),
+            ("String buffer overflow", DefenseType.BOUNDS_ENFORCEMENT, lambda: AttackPatternLibrary.buffer_overflow_small(self.generation_number), 3),
+            ("SQL injection", DefenseType.SANITIZATION, AttackPatternLibrary.sql_injection, 4),
+            ("Obfuscated SQL injection", DefenseType.SANITIZATION, lambda: AttackPatternLibrary.sql_injection_obfuscated(self.generation_number), 5),
+            ("State object corruption", DefenseType.STATE_PROTECTION, AttackPatternLibrary.state_corruption, 3),
+            ("Code execution injection", DefenseType.STATE_PROTECTION, AttackPatternLibrary.code_injection, 5),
         ]
+
+        for i in range(min(len(patterns), self.config.initial_population_size)):
+            name, defense, generator, difficulty = patterns[i]
+            self.attack_patterns.append(
+                AttackPattern(
+                    defense_type=defense,
+                    payload_generator=generator,
+                    description=name,
+                    difficulty=difficulty
+                )
+            )
     
     def execute_attack(self, pattern: AttackPattern) -> Exploit:
         """Execute single attack pattern"""

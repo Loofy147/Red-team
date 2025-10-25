@@ -95,11 +95,11 @@ def setup_logging(config: Config) -> logging.Logger:
 # ============================================================================
 
 # Core components
-from core import EvolvableSeed, DefenseType
-from autonomous_intelligence import AutonomousIntelligence
-from attacker_intelligence import AttackerIntelligence
-from adaptive_attacks import AdaptiveAttackGenerator
-from counter_intelligence_system import CompleteAdversarialSystem
+from red_team.src.core.seed import EvolvableSeed, DefenseType
+from red_team.src.intelligence.defender import AutonomousIntelligence
+from red_team.src.intelligence.attacker import AttackerIntelligence
+from red_team.src.attacks.adaptive import AdaptiveAttackGenerator
+from red_team.src.evolution.arms_race import CompleteAdversarialSystem
 
 
 # ============================================================================
@@ -266,7 +266,7 @@ class EvolutionMode:
                 self.logger.info(f"Loaded previous state from generation {previous_state['generation']}")
             
             # Run evolution
-            from orchestrated_attacks import ScenarioOrchestrator
+            from red_team.src.attacks.orchestration import ScenarioOrchestrator
             orchestrator = ScenarioOrchestrator()
             
             for gen in range(self.config.max_generations):
