@@ -176,153 +176,40 @@ class GenerationReport:
 
 
 # ============================================================================
-# DEFENSE FRAMEWORK
-# ============================================================================
-
-class DefenseMechanism(ABC):
-    """Base class for all defense mechanisms"""
-    
-    def __init__(self, config: DefenseConfig):
-        self.config = config
-    
-    @abstractmethod
-    def evaluate(self, value: Any) -> Tuple[bool, str]:
-        """
-        Evaluate if value should be blocked.
-        Returns (should_block, reason)
-        """
-        pass
-    
-    def execute(self, value: Any) -> Tuple[bool, str]:
-        """Execute defense with tracking"""
-        should_block, reason = self.evaluate(value)
-        self.config.trigger(should_block)
-        return should_block, reason
-
-
-class InputValidationDefense(DefenseMechanism):
-    """Validates basic input properties"""
-    
-    def evaluate(self, value: Any) -> Tuple[bool, str]:
-        if value is None:
-            return True, "Rejected: null value"
-        if isinstance(value, str) and value == "":
-            return True, "Rejected: empty string"
-        if self.config.strength >= 4:
-            if not isinstance(value, (str, int, float)):
-                return True, "Rejected: invalid base type"
-        return False, "Passed validation"
-
-
-class TypeCheckingDefense(DefenseMechanism):
-    """Validates type safety"""
-    
-    def evaluate(self, value: Any) -> Tuple[bool, str]:
-        # Reject complex types
-        if isinstance(value, (list, dict, tuple, set)):
-            return True, f"Rejected: {type(value).__name__} type"
-        if hasattr(value, '__dict__') and not isinstance(value, (str, int, float)):
-            return True, "Rejected: complex object"
-        return False, "Passed type check"
-
-
-class BoundsEnforcementDefense(DefenseMechanism):
-    """Enforces size and length limits"""
-    
-    def evaluate(self, value: Any) -> Tuple[bool, str]:
-        # Dynamic threshold based on strength
-        max_len = 50 - (10 - self.config.strength) * 3
-        
-        if isinstance(value, str) and len(value) > max_len:
-            return True, f"Rejected: string too long ({len(value)} > {max_len})"
-        
-        if isinstance(value, (list, dict)) and len(value) > max_len / 2:
-            return True, f"Rejected: collection too large"
-        
-        return False, "Passed bounds check"
-
-
-class SanitizationDefense(DefenseMechanism):
-    """Blocks dangerous character patterns"""
-    
-    def evaluate(self, value: Any) -> Tuple[bool, str]:
-        dangerous = ["'", '"', ";", "--", "/*", "*/", "DROP", "DELETE", "UNION"]
-        
-        if self.config.strength >= 8:
-            dangerous.extend(["<", ">", "{", "}", "[", "]"])
-        
-        value_str = str(value).upper()
-        for pattern in dangerous:
-            if pattern in value_str:
-                return True, f"Rejected: dangerous pattern '{pattern}'"
-        
-        return False, "Passed sanitization"
-
-
-class StateProtectionDefense(DefenseMechanism):
-    """Prevents state corruption attacks"""
-    
-    def evaluate(self, value: Any) -> Tuple[bool, str]:
-        if isinstance(value, (dict, list)):
-            value_str = str(value)
-            if "_protected" in value_str or "_private" in value_str:
-                return True, "Rejected: state injection attempt"
-            if "exec" in value_str or "eval" in value_str:
-                return True, "Rejected: code injection attempt"
-        
-        return False, "Passed state protection"
-
-
-class RateLimitingDefense(DefenseMechanism):
-    """Rate limiting mechanism"""
-    
-    def __init__(self, config: DefenseConfig):
-        super().__init__(config)
-        self.request_count = 0
-    
-    def evaluate(self, value: Any) -> Tuple[bool, str]:
-        self.request_count += 1
-        
-        if self.config.strength >= 5 and self.request_count > self.config.strength * 2:
-            self.request_count = 0
-            return True, "Rejected: rate limit exceeded"
-        
-        return False, "Passed rate limit"
-
-
-class CryptographyDefense(DefenseMechanism):
-    """Cryptographic validation"""
-    
-    def evaluate(self, value: Any) -> Tuple[bool, str]:
-        if self.config.strength >= 7:
-            # Simulate cryptographic check
-            if isinstance(value, str):
-                # Check for payload tampering patterns
-                if len(value) % 2 != 0 and value.count("'") > 0:
-                    return True, "Rejected: crypto validation failed"
-        
-        return False, "Passed crypto check"
-
-
-# ============================================================================
 # DEFENSE FRAMEWORK MANAGER
 # ============================================================================
+
+from .defenses import (
+    DefenseMechanism,
+    InputValidationDefense,
+    TypeCheckingDefense,
+    BoundsEnforcementDefense,
+    SanitizationDefense,
+    StateProtectionDefense,
+    RateLimitingDefense,
+    CryptographyDefense,
+)
+
+from red_team.config import get_config
 
 class DefenseFramework:
     """Manages all defense mechanisms"""
     
-    def __init__(self):
+    def __init__(self, config=None):
+        if config is None:
+            config = get_config().defense
+        self.config = config
         self.defenses: Dict[DefenseType, DefenseMechanism] = {}
         self._initialize_defenses()
     
     def _initialize_defenses(self):
         """Initialize all defense mechanisms"""
         configs = {
-            DefenseType.INPUT_VALIDATION: DefenseConfig(DefenseType.INPUT_VALIDATION, strength=2),
-            DefenseType.TYPE_CHECKING: DefenseConfig(DefenseType.TYPE_CHECKING, strength=1),
-            DefenseType.BOUNDS_ENFORCEMENT: DefenseConfig(DefenseType.BOUNDS_ENFORCEMENT, strength=1),
-            DefenseType.SANITIZATION: DefenseConfig(DefenseType.SANITIZATION, strength=2),
-            DefenseType.STATE_PROTECTION: DefenseConfig(DefenseType.STATE_PROTECTION, strength=1),
+            DefenseType.INPUT_VALIDATION: DefenseConfig(DefenseType.INPUT_VALIDATION, strength=self.config.initial_strength),
+            DefenseType.TYPE_CHECKING: DefenseConfig(DefenseType.TYPE_CHECKING, strength=self.config.initial_strength),
+            DefenseType.BOUNDS_ENFORCEMENT: DefenseConfig(DefenseType.BOUNDS_ENFORCEMENT, strength=self.config.initial_strength),
+            DefenseType.SANITIZATION: DefenseConfig(DefenseType.SANITIZATION, strength=self.config.initial_strength),
+            DefenseType.STATE_PROTECTION: DefenseConfig(DefenseType.STATE_PROTECTION, strength=self.config.initial_strength),
             DefenseType.RATE_LIMITING: DefenseConfig(DefenseType.RATE_LIMITING, active=False),
             DefenseType.CRYPTOGRAPHY: DefenseConfig(DefenseType.CRYPTOGRAPHY, active=False),
         }
@@ -384,18 +271,23 @@ class DefenseFramework:
 class EvolvableSeed:
     """System that evolves defensive capabilities"""
     
-    def __init__(self, name: str):
+    def __init__(self, name: str, config=None):
         self.name = name
         self.generation = 0
-        self.defense_framework = DefenseFramework()
+        if config is None:
+            config = get_config()
+        self.config = config
+        self.defense_framework = DefenseFramework(self.config.defense)
         self.evolution_history: List[GenerationReport] = []
     
     def test_defense(self, defense_type: DefenseType, payload: Any) -> Tuple[bool, str]:
         """Test a payload against a defense"""
         return self.defense_framework.apply_defense(defense_type, payload)
     
-    def strengthen_defense(self, defense_type: DefenseType, amount: int = 1):
+    def strengthen_defense(self, defense_type: DefenseType, amount: int = None):
         """Strengthen a defense"""
+        if amount is None:
+            amount = self.config.defense.strengthening_rate
         self.defense_framework.strengthen(defense_type, amount)
     
     def activate_defense(self, defense_type: DefenseType):

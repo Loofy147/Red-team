@@ -16,7 +16,7 @@ Features:
 from typing import Any, Dict, List, Tuple
 import base64
 import random
-from attacker_intelligence import (
+from ..intelligence.attacker import (
     AttackerIntelligence, AttackVector, PayloadCharacteristics
 )
 

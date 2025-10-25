@@ -18,13 +18,15 @@ import time
 from typing import List, Tuple
 from dataclasses import dataclass
 
-from core import (
-    EvolvableSeed, DefenseType, DefenseConfig,
-    InputValidationDefense, TypeCheckingDefense,
-    BoundsEnforcementDefense, SanitizationDefense
+from red_team.src.core.framework import EvolvableSeed, DefenseType, DefenseConfig
+from red_team.src.core.defenses import (
+    InputValidationDefense,
+    TypeCheckingDefense,
+    BoundsEnforcementDefense,
+    SanitizationDefense,
 )
-from red_team import RedTeamExecutor, AttackPatternLibrary
-from orchestrator import EvolutionOrchestrator
+from red_team.src.core.seed import RedTeamExecutor, AttackPatternLibrary
+from red_team.src.evolution.orchestrator import EvolutionOrchestrator
 
 
 # ============================================================================
@@ -379,12 +381,18 @@ class RegressionTests:
     @staticmethod
     def test_empty_exploit_list():
         """Test handling of empty exploit list"""
-        from red_team import RedTeamAdaptationEngine
+        from red_team.src.core.seed import RedTeamAdaptationEngine
         
         seed = EvolvableSeed("TestSystem")
         red_team = RedTeamExecutor(seed)
         engine = RedTeamAdaptationEngine(red_team)
         
+        # Should not crash
+        issues = engine.analyze_results([])
+        assert isinstance(issues, list)
+        red_team = RedTeamExecutor(seed)
+        engine = RedTeamAdaptationEngine(red_team)
+
         # Should not crash
         issues = engine.analyze_results([])
         assert isinstance(issues, list)
